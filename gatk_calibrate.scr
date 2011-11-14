@@ -1,0 +1,62 @@
+#!/bin/sh
+#$ -cwd
+# -l mem=8G,time=8::
+
+# This step in the pipeline performs calibration of the original input bam file.
+
+GLOBAL="global_config.sh"
+
+if [[ -e $GLOBAL ]]
+then
+        . $GLOBAL
+else
+        echo "Global config file not found. Exiting."
+        exit 1
+fi
+
+USAGE="Usage: $0 -I <Input bam file> -R <Reference fasta> -D <DBSNP file> [-L \"#:#-#\"]"
+
+while getopts I:L:R:D:h o
+do      case "$o" in
+        I)      INP="$OPTARG";;
+        L)      CHR="$OPTARG";;
+        R)      REF="$OPTARG";;
+        D)      DBSNP="$OPTARG";;
+        h)      echo $USAGE
+                exit 1;;
+        esac
+done
+
+if [[ $INP == "" || $REF == "" || $DBSNP == "" ]]
+then
+        echo $USAGE
+        exit 1
+fi
+
+# Chromosome number may be specified in eithe of the formats for example:
+# chrX or X
+# Find out using the samtools idxstats command.
+
+CHR_NAME=`$SAMTOOLS idxstats $INP | grep chr`
+
+if [[ $CHR != "" ]]
+then
+        if [[ `grep chr $CHR` == "" && -n $CHR_NAME ]]
+	then
+        	CHR="chr${CHR}"
+	fi
+fi
+
+$GATK \
+ -L $CHR \
+ -R $REF \
+ --DBSNP $DBSNP \
+ -I $INP \
+ -T CountCovariates \
+ -cov ReadGroupCovariate \
+ -cov QualityScoreCovariate \
+ -cov CycleCovariate \
+ -cov DinucCovariate \
+ -recalFile $INP.recal_data.csv
+
+# [-B:mask,VCF sitesToMask.vcf] \

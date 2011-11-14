@@ -1,0 +1,70 @@
+#!/bin/sh
+#$ -cwd
+# -l mem=8G,time=8::
+
+# This step in the pipeline performs recalibration of the bam file.
+
+GLOBAL="global_config.sh"
+
+if [[ -e $GLOBAL ]]
+then
+        . $GLOBAL
+else
+        echo "Global config file not found. Exiting."
+        exit 1
+fi
+
+USAGE="Usage: $0 -I <Input bam file> -R <Reference fasta> -L \"#:#-#\"]"
+
+while getopts I:L:R:h o
+do      case "$o" in
+        I)      INP="$OPTARG";;
+        L)      CHR="$OPTARG";;
+        R)      REF="$OPTARG";;
+        h)      echo $USAGE
+                exit 1;;
+        esac
+done
+
+if [[ $INP == "" || $REF == ""  ]]
+then
+        echo $USAGE
+        exit 1
+fi
+
+CHR_NAME=`$SAMTOOLS idxstats $INP | grep chr`
+
+if [[ $CHR != "" ]]
+then
+        if [[ `grep chr $CHR` == "" && -n $CHR_NAME ]]
+        then
+                CHR="chr${CHR}"
+        fi
+fi
+
+$GATK \
+ -L $CHR \
+ -R $REF \
+ -T TableRecalibration \
+ -I $INP \
+ -recalFile $INP.recal_data.csv \
+ --out $INP.recalibrated.bam
+
+if [[ $? != 0 || `grep "$ERRORMESSAGE" recalibrate.output pipeline.output` != "" ]]
+then
+        echo "Recalibration FAILED"
+        exit 1
+fi
+
+rm -f $INP $INP.bai
+
+$SAMTOOLS index $INP.recalibrated.bam
+
+if [[ $? != 0 ]]
+then
+        echo "Recalibration: Samtools indexing FAILED"
+        exit 1
+fi
+
+echo "$0: samtools index complete"
+

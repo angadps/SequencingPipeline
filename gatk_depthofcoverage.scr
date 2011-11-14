@@ -1,0 +1,89 @@
+#!/bin/sh
+#$ -cwd
+# -l mem=6G,time=8::
+
+# This step in the pipeline computes the depth of coverage.
+
+GLOBAL="global_config.sh"
+
+if [[ -e $GLOBAL ]]
+then
+        . $GLOBAL
+else
+        echo "Global config file not found. Exiting."
+        exit 1
+fi
+
+USAGE="Usage: $0 -I <Input bam file> -R <Reference fasta> [-L \"#:#-#\"] [-E <ExonFile>]"
+
+while getopts I:L:E:R:h o
+do      case "$o" in
+        I)      INP="$OPTARG";;
+        L)      List="$OPTARG";;
+        R)      REF="$OPTARG";;
+        E)      ExonFile="$OPTARG";;
+        h)      echo $USAGE
+                exit 1;;
+        esac
+done
+
+if [[ $INP == "" || $REF == "" ]]
+then
+        echo $USAGE
+        exit 1
+fi
+
+# Specify either the chromosome range or the exon region list. If neither or both are specified,
+# we do not know what to do.
+if [[ $List == "" && $ExonFile == "" || $List != "" && $ExonFile != "" ]]
+then
+	echo $EXONUSAGE
+	exit 1
+fi
+
+# Obtain the chromosome naming convention.
+CHR_NAME=`$SAMTOOLS idxstats $INP | grep chr`
+
+# If exon region list is specified, modify the file format to the following form: "<chr#>:low-high"
+# If chromosome range is specified, just check for the naming convention.
+if [[ $ExonFile != "" ]]
+then
+        if [[ -n $CHR_NAME ]]
+	then
+		cat $ExonFile | awk '{split($1,a,"chr"); print "chr" a[2] ":" $2 "-" $3}' > "${ExonFile}.list"
+		echo non-zero ${ExonFile}.list
+        else
+		cat $ExonFile | awk '{split($1,a,"chr"); print a[2] ":" $2 "-" $3}' > "${ExonFile}.list"
+		echo zero ${ExonFile}.list
+       	fi
+	CHR="${ExonFile}.list"
+else
+        if [[ `grep chr $CHR` == "" && -n $CHR_NAME ]]
+	then
+		CHR="chr${List}"
+	else
+		CHR="${List}"
+	fi
+	echo CHR is $CHR
+fi
+
+$GATK \
+ -T DepthOfCoverage \
+ -L $CHR \
+ -R $REF \
+ -I $INP \
+ -o $INP.coverage
+
+if [[ $? != 0 || `grep "$ERRORMESSAGE" "$DATAPATH"/depthofcoverage.output "$DATAPATH"/pipeline.output` != "" ]]
+then
+        echo "Depth of coverage FAILED"
+        exit 1
+fi
+
+chmod g=rw $DATAPATH/*
+
+# Could possibly include these
+#-omitBaseOutput \
+#-omitLocusTable   \
+#-omitIntervals    \
+#-omitSampleSummary  \

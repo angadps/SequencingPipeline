@@ -1,0 +1,61 @@
+#!/bin/sh
+#$ -cwd
+#$ -l mem=6G,time=8::
+
+# This step in the pipeline performs indel calling on the input bam file.
+
+GLOBAL="global_config.sh"
+
+if [[ -e $GLOBAL ]]
+then
+        . $GLOBAL
+else
+        echo "Global config file not found. Exiting."
+        exit 1
+fi
+
+USAGE="Usage: $0 -I <Input bam file> -R <Reference Fasta> [-L \"#:#-#\"]"
+
+while getopts I:L:R:h o
+do      case "$o" in
+        I)      INP="$OPTARG";;
+        L)      CHR="$OPTARG";;
+        R)      REF="$OPTARG";;
+        h)      echo $USAGE
+                exit 1;;
+        esac
+done
+
+if [[ $INP == "" || $REF == "" ]]
+then
+        echo $USAGE
+        exit 1
+fi
+
+CHR_NAME=`$SAMTOOLS idxstats $INP | grep chr`
+
+if [[ $CHR != "" ]]
+then
+        if [[ `grep chr $CHR` == "" && -n $CHR_NAME ]]
+        then
+                CHR="chr${CHR}"
+        fi
+fi
+
+$GATK \
+ -L $CHR \
+ -T IndelGenotyperV2 \
+ -R $REF \
+ -I $INP \
+ -bed $INP.indels.raw.bed \
+ -verbose $INP.detailed.output.bed \
+ -o $INP.output.vcf
+
+ 
+#-minCnt 2 \
+#-minFraction 0.03 \
+#-minConsensusFraction 0.6 \
+#-mnr 1000000 
+#-O $INP.indels.raw.bed \
+#-o $INP.detalied.output.bed \
+#-verbose \
