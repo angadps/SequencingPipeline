@@ -1,0 +1,18 @@
+#!/bin/sh
+#$ -cwd
+
+
+HEAP=1000
+JAVA="java -Xmx${HEAP}m -Djava.io.tmpdir=/ifs/scratch/c2b2/ip_lab/ag2671/tmp"
+GATK="$JAVA -jar /ifs/home/c2b2/ip_lab/yshen/usr/Sting/dist/GenomeAnalysisTK.jar"
+REF="/ifs/data/c2b2/ip_lab/shares/DATA/Sequencing/resources/human_g1k_v37.fasta"
+INP=$1
+CHR=$2
+
+$GATK \
+ -T DepthOfCoverage \
+ -L $CHR \
+ -R $REF \
+ -I $INP \
+ -o $INP.coverage
+

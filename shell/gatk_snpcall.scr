@@ -1,0 +1,34 @@
+#!/bin/sh
+#$ -cwd
+
+# Perform initial SNP calling
+# Load all samples from chromosome in a single $INP list file
+
+HEAP=1000
+JAVA="java -Xmx${HEAP}m -Djava.io.tmpdir=/ifs/scratch/c2b2/ip_lab/ag2671/tmp"
+GATK="$JAVA -jar /ifs/home/c2b2/ip_lab/yshen/usr/Sting/dist/GenomeAnalysisTK.jar"
+REF="/ifs/data/c2b2/ip_lab/shares/DATA/Sequencing/resources/human_g1k_v37.fasta"
+DBSNP="/ifs/data/c2b2/ip_lab/shares/DATA/Sequencing/resources/dbsnp_129_b37.rod"
+
+#REF="/ifs/data/c2b2/ip_lab/shares/DATA/Sequencing/resources/valid.hg18.fa"
+#DBSNP="/ifs/data/c2b2/ip_lab/shares/DATA/Sequencing/resources/dbsnp_130_hg18.rod"
+
+INP=$1
+CHR="1:10029-2524226"
+
+#java -Xmx${HEAP}m -jar /ifs/home/c2b2/ip_lab/yshen/usr/Sting/dist/GenomeAnalysisTK.jar \
+
+$GATK \
+ -L $CHR \
+ -R $REF \
+ -D $DBSNP \
+ -T UnifiedGenotyper \
+ -I $INP \
+ -o $INP.snps.raw.vcf \
+ -stand_call_conf 10.0 \
+ -dcov 50 \
+ -pl UNKNOWN \
+ -bm EMPIRICAL
+
+# -A DepthOfCoverage \
+# -I $INP.list \

@@ -1,0 +1,33 @@
+#!/bin/sh
+#$ -S /bin/sh
+#$ -cwd
+#$ -l h_vmem=5G,time=8::
+
+# Recalibrate base quality score
+# INPUT:	Run with a single read-group/lane in $INP.list
+# OUTPUT:	$INP.recal_data.csv recalibrate info file
+
+HEAP=1000
+JAVA="java -Xmx${HEAP}m -Djava.io.tmpdir=/ifs/scratch/c2b2/ip_lab/ag2671/tmp"
+GATK="$JAVA -jar /ifs/home/c2b2/ip_lab/yshen/usr/Sting/dist/GenomeAnalysisTK.jar"
+REF="/ifs/data/c2b2/ip_lab/shares/DATA/Sequencing/resources/human_g1k_v37.fasta"
+DBSNP="/ifs/data/c2b2/ip_lab/shares/DATA/Sequencing/resources/dbsnp_129_b37.rod"
+
+INP=$1
+CHR="1:10029-2524226"
+
+$GATK \
+ -L $CHR \
+ -R $REF \
+ --DBSNP $DBSNP \
+ -I $INP \
+ -T CountCovariates \
+ -cov ReadGroupCovariate \
+ -cov QualityScoreCovariate \
+ -cov CycleCovariate \
+ -cov DinucCovariate \
+ --default_platform illumina \
+ -recalFile $INP.recal_data.csv
+
+# --default_platform solid --solid_nocall_strategy PURGE_READ \
+# --solid_recal_mode REMOVE_REF_BIAS \
